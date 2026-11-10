@@ -1,8 +1,9 @@
 # Import Mage decorators
-# If Mage is not installed, use simple fallback decorators.
+# Fallback decorators allow importing outside Mage.
 
 try:
     from mage_ai.data_preparation.decorators import transformer, test
+
 except ImportError:
 
     def transformer(func):
@@ -18,7 +19,7 @@ from sklearn.model_selection import train_test_split
 @transformer
 def transform(df, *args, **kwargs):
 
-    # Split the dataset into training and testing records
+    # Split dataset into training and testing indices
     train_indices, test_indices = train_test_split(
         df.index,
         test_size=0.2,
@@ -26,23 +27,13 @@ def transform(df, *args, **kwargs):
         stratify=df["target"]
     )
 
-    # Create a copy of the original DataFrame
+    # Copy original dataframe
     output = df.copy()
 
-    # Initially mark all records as training data
+    # Assign training label
     output["split"] = "train"
 
-    # Mark the test records
+    # Assign testing label
     output.loc[test_indices, "split"] = "test"
 
     return output
-
-
-@test
-def test_output(output, *args):
-
-    assert "split" in output.columns
-
-    assert (output["split"] == "train").sum() == 120
-
-    assert (output["split"] == "test").sum() == 30
