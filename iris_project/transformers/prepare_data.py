@@ -1,39 +1,33 @@
-# Import Mage decorators
-# Fallback decorators allow importing outside Mage.
-
-try:
-    from mage_ai.data_preparation.decorators import transformer, test
-
-except ImportError:
-
-    def transformer(func):
-        return func
-
-    def test(func):
-        return func
-
-
+import pandas as pd
 from sklearn.model_selection import train_test_split
 
+# Import Mage's decorators only if they aren't already loaded
+if 'transformer' not in globals():
+    from mage_ai.data_preparation.decorators import transformer
+if 'test' not in globals():
+    from mage_ai.data_preparation.decorators import test
 
+
+# ransformer marks this as a step that changes data coming from an earlier block
+# 'df' is the 150-row table returned by load_iris, passed in automatically by Mage
+# It splits the data 80/20 and adds a 'split' column labelling each row train or test
 @transformer
 def transform(df, *args, **kwargs):
+    train_df, test_df = train_test_split(df, test_size=0.2, random_state=42)
 
-    # Split dataset into training and testing indices
-    train_indices, test_indices = train_test_split(
-        df.index,
-        test_size=0.2,
-        random_state=42,
-        stratify=df["target"]
-    )
+    train_df = train_df.copy()
+    test_df = test_df.copy()
+    train_df['split'] = 'train'
+    test_df['split'] = 'test'
 
-    # Copy original dataframe
-    output = df.copy()
+    result = pd.concat([train_df, test_df])
+    print('Train rows:', len(train_df), '| Test rows:', len(test_df))
+    return result
 
-    # Assign training label
-    output["split"] = "train"
 
-    # Assign testing label
-    output.loc[test_indices, "split"] = "test"
-
-    return output
+# Runs right after transform finishes, using its returned table as 'output'
+# Checks that the new 'split' column was actually created
+# If it's missing, the block fails and train_model never runs
+@test
+def test_output(output, *args):
+    assert 'split' in output.columns, 'split column missing'
